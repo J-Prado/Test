@@ -1,90 +1,113 @@
-# QA Case — Opción Yo
+# OpciónYo — Aplicación de referencia (Laravel 11 + Vue 3)
 
-Este repo está dividido en **dos partes** con un propósito distinto cada una:
+Plataforma de bienestar que conecta pacientes con especialistas por videollamada.
+Es el **sistema bajo prueba (SUT)** del caso técnico de QA: implementa los flujos
+de Login, Pago (Stripe), Agendamiento y Videollamada (AWS Chime) sobre el stack
+del documento — **Laravel (PHP) · Vue.js · MySQL · Stripe · AWS Chime**.
 
-| Carpeta | Qué es | Para qué |
-|---------|--------|----------|
-| **`app-mock/`** | Una app **Laravel de ejemplo** (auth, pagos, agenda, video). | El *andamiaje*: algo real contra qué correr los tests. No es el entregable. |
-| **`qa-case/`** | El **entregable de QA**: plan, E2E (Playwright), bugs y la documentación del caso. | Lo que se evalúa: estrategia, estructura y que los tests corran de verdad. |
-
-> **¿Por qué los tests de API/Feature (Flows A, B, C, Chime) están dentro de
-> `app-mock/` y no en `qa-case/`?** Porque son tests nativos de Laravel: arrancan
-> el kernel de la app y usan `RefreshDatabase`, factories y modelos. Sólo corren
-> *desde dentro* del proyecto Laravel (`php artisan test`). El **E2E** de
-> Playwright, en cambio, le pega a la app por HTTP y sí vive aparte, en
-> `qa-case/e2e/`.
+> ⚠️ Esta app fue escrita a mano en un entorno **sin PHP**, por lo que no pudo
+> ejecutarse/verificarse aquí. El código sigue las convenciones estándar de
+> Laravel 11 y arranca con los pasos de abajo en cualquier máquina con PHP 8.2+.
 
 ## Requisitos
 
-- **PHP 8.2+** y **Composer** (para la suite principal, en `app-mock/`)
-- **Node 18+** (sólo para el E2E con Playwright, en `qa-case/e2e/`)
-- Ver **[qa-case/INSTALL.md](qa-case/INSTALL.md)** para instalarlos paso a paso.
+- PHP **8.2+** con extensiones `pdo_mysql`, `mbstring`, `openssl`, `ctype`, `json`
+- **Composer** 2
+- **MySQL** 8 (o MariaDB 10.4+)
+- **Node.js** 18+ y npm
 
-## Correr todo con un solo comando
-
-Desde la **raíz del repo**:
-
-**Windows (PowerShell):**
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
-```
-
-**macOS / Linux:**
+## Puesta en marcha (una vez)
 
 ```bash
-bash scripts/setup.sh
+# 1. Dependencias
+composer install
+npm install
+
+# 2. Entorno
+cp .env.example .env          # Windows: copy .env.example .env
+php artisan key:generate
+
+# 3. Base de datos MySQL — crea el schema y ajusta credenciales en .env
+#    (DB_DATABASE=opcionyo, DB_USERNAME, DB_PASSWORD)
+mysql -u root -p -e "CREATE DATABASE opcionyo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# 4. Migraciones + datos de ejemplo (especialistas, horarios, paciente demo)
+php artisan migrate --seed
 ```
 
-Eso entra a `app-mock/`, instala dependencias, crea `.env`, genera la key, crea
-la base SQLite, corre migraciones + seed y **ejecuta la suite completa** (Flows
-A, B, C y Chime).
+## Correr la app (dos procesos)
 
-Para el detalle de cada flujo, el E2E y la integración real con Stripe sandbox:
-**[qa-case/RUN.md](qa-case/RUN.md)**.
+```bash
+# Terminal 1 — API + servidor web de Laravel
+php artisan serve            # http://localhost:8000
 
-## Qué se prueba
+# Terminal 2 — build/HMR del frontend Vue con Vite
+npm run dev
+```
 
-| Flujo | Qué cubre | Archivo |
-|-------|-----------|---------|
-| **A — Login** | registro, login válido/ inválido, recurso protegido sin token, rate-limit | `app-mock/tests/Feature/Flujo_A_AuthTest.php` |
-| **B — Pago (Stripe)** | pago exitoso, tarjeta rechazada, webhook actualiza suscripción, firma inválida | `app-mock/tests/Feature/Flujo_B_PaymentTest.php` |
-| **C — Agendamiento** | reservar slot, doble-booking rechazado, cancelar libera slot | `app-mock/tests/Feature/Flujo_C_AppointmentTest.php` |
-| **Video — Chime** | crea meeting+attendee (mock AWS), manejo de error | `app-mock/tests/Feature/ChimeVideoTest.php` |
-| **E2E — Login** | flujo en navegador real (Playwright) | `qa-case/e2e/tests/login.spec.ts` |
+Abre **http://localhost:8000**.
+
+Usuario demo (creado por el seeder):
+`paciente@opcionyo.test` / `password123`
+
+Para producción/estático: `npm run build` genera los assets en `public/build`
+y ya no hace falta `npm run dev`.
+
+## Flujos implementados
+
+| Flujo | Endpoints | Notas |
+|---|---|---|
+| **A · Login** | `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/me` | Tokens con Laravel Sanctum. `/api/me` responde 401 sin token. |
+| **B · Pago (Stripe)** | `POST /api/payments/subscribe`, `POST /api/webhooks/stripe`, `GET /api/subscriptions/{user}` | Tarjetas de prueba abajo. El webhook actualiza el estado en la BD. |
+| **C · Agendamiento** | `GET /api/specialists`, `GET /api/slots`, `GET/POST /api/appointments`, `DELETE /api/appointments/{id}` | Reserva con bloqueo de fila (`lockForUpdate`) para evitar doble reserva → 409. Cancelar libera el slot. |
+| **Video · Chime** | `POST /api/video/meetings` | Devuelve payload con forma `CreateMeeting`/`CreateAttendee`. |
+
+### Stripe (modo sandbox)
+
+Sin `STRIPE_SECRET` en `.env` la app corre en **modo fake**: reconoce las
+tarjetas de prueba estándar de Stripe y confirma el pago automáticamente
+(simulando el webhook). Con claves sandbox reales, usa el SDK de Stripe.
+
+- ✅ Aprobada: `4242 4242 4242 4242` (o `pm_card_visa`)
+- ⛔ Declinada: `4000 0000 0000 0002` (o `pm_card_chargeDeclined`) → HTTP 402
+
+`STRIPE_AUTO_CONFIRM_MS=-1` desactiva la auto-confirmación para poder probar el
+webhook de forma explícita (así lo hace el entorno de tests en `phpunit.xml`).
+
+### AWS Chime
+
+`CHIME_ENABLED=false` (default) devuelve un stub determinista con la misma forma
+que la API real, para poder testear la lógica sin hardware ni credenciales.
+Con `CHIME_ENABLED=true` + credenciales AWS, llama a Chime real.
 
 ## Estructura
 
 ```
-qa-case-opcionyo/
-├── README.md                # este archivo — orientación general
-├── scripts/                 # setup con un comando (sh / ps1), corre sobre app-mock
-├── .github/workflows/       # pipeline de CI (bloquea el merge si algo falla)
-│
-├── app-mock/                # LA APP MOCK (Laravel de ejemplo)
-│   ├── app/ · routes/ · database/ · config/ · resources/ · public/
-│   ├── artisan · composer.json · phpunit.xml · .env.example
-│   └── tests/               # Flows A, B, C + Chime + Unit (php artisan test)
-│                            #   tests/Chime/DEVICE_MATRIX.md
-│
-└── qa-case/                 # EL CASO QA (entregable)
-    ├── plan/                # plan de QA (1 página)
-    ├── bugs/                # 3 edge cases documentados
-    ├── e2e/                 # Playwright (E2E de login)
-    ├── INSTALL.md           # cómo instalar todo, paso a paso
-    ├── RUN.md               # cómo correr cada cosa
-    ├── DEMO.md              # guion para presentar el caso
-    └── PROCESS.md           # herramientas usadas y por qué (incluye uso de IA)
+app/
+  Http/Controllers/   AuthController, PaymentController, SchedulingController,
+                      StripeWebhookController, VideoController
+  Models/             User, Specialist, Slot, Appointment, Subscription
+  Services/           StripeGateway, ChimeGateway   (lógica sandbox/fake)
+database/
+  migrations/         users, specialists, slots, appointments, subscriptions…
+  seeders/            DatabaseSeeder (especialistas + slots + paciente demo)
+  factories/          para tus tests
+resources/
+  js/                 SPA Vue 3 (router + componentes por flujo)
+  css/app.css         tema del producto
+  views/app.blade.php shell del SPA
+routes/
+  api.php             endpoints de la API
+  web.php             sirve el SPA
+tests/                phpunit configurado (agrega aquí la suite de QA)
 ```
 
-## CI
+## Tests
 
-`.github/workflows/ci.yml` corre en cada PR y push a `main` (vive en la raíz
-porque GitHub sólo ejecuta workflows ahí):
+```bash
+php artisan test
+```
 
-- **job `tests`** — suite de API + Chime, corre en `app-mock/` (obligatorio).
-- **job `e2e`** — Playwright en `qa-case/e2e/` contra un server real levantado
-  desde `app-mock/`.
-
-Para que **bloquee el merge**, marcar estos checks como *required* en
-**Settings → Branches → Branch protection rules** del repo.
+`phpunit.xml` corre sobre SQLite en memoria, así los tests no tocan tu MySQL.
+Hay un smoke test de ejemplo en `tests/Feature/SmokeTest.php`; los flujos A/B/C
+y Chime son el objetivo del caso de QA.
