@@ -1,8 +1,9 @@
 # One-shot setup for the Opcion Yo QA case (Windows / PowerShell).
+# Runs against the Laravel app mock in ../app-mock.
 # Usage:  powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 $ErrorActionPreference = 'Stop'
 
-Set-Location (Join-Path $PSScriptRoot '..')
+Set-Location (Join-Path $PSScriptRoot '..\app-mock')
 
 Write-Host '==> Installing PHP dependencies (composer)' -ForegroundColor Cyan
 composer install --no-interaction --prefer-dist

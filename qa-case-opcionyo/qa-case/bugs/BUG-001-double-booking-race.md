@@ -28,7 +28,7 @@ Exactamente **una** reserva gana (201) y la otra recibe **409 Conflict**;
 
 `AppointmentController::store()` envuelve la operación en una transacción con
 `lockForUpdate()` sobre el slot y chequea la disponibilidad **bajo el lock**.
-Test: `tests/Feature/Flujo_C_AppointmentTest.php` → *"rejects booking a slot that
+Test: `app-mock/tests/Feature/Flujo_C_AppointmentTest.php` → *"rejects booking a slot that
 is already taken"* (versión secuencial, que es lo determinista en CI).
 
 ## Nota de testing

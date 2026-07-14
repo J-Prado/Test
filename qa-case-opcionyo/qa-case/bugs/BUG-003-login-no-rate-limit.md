@@ -28,7 +28,7 @@ crece con backoff.
 La ruta de login usa `throttle:6,1` (6 intentos por minuto). Al 7° intento
 responde **429**.
 
-Test que lo verifica: `tests/Feature/Flujo_A_AuthTest.php` → *"throttles repeated
+Test que lo verifica: `app-mock/tests/Feature/Flujo_A_AuthTest.php` → *"throttles repeated
 failed logins (brute-force protection)"*.
 
 ## Mejora futura

@@ -29,7 +29,7 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
-    command: 'php ../artisan serve --host=127.0.0.1 --port=8000',
+    command: 'php ../../app-mock/artisan serve --host=127.0.0.1 --port=8000',
     url: 'http://127.0.0.1:8000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

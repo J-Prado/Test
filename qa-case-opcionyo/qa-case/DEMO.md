@@ -9,17 +9,20 @@ que entregaste — así que narrá las decisiones, no sólo el output.
 
 ## Antes de empezar (5 min de prep)
 
-1. En la máquina donde vas a demostrar, corré el setup y confirmá que da verde:
+1. En la máquina donde vas a demostrar, corré el setup **desde la raíz del repo**
+   y confirmá que da verde (el script entra solo a `app-mock/`):
    ```powershell
    powershell -ExecutionPolicy Bypass -File scripts\setup.ps1   # Windows
    ```
    ```bash
    bash scripts/setup.sh                                        # macOS/Linux
    ```
-2. Dejá **dos terminales** abiertas en la raíz del proyecto.
-3. (Opcional, si vas a mostrar E2E) `cd e2e && npm install && npx playwright install chromium`.
-4. Abrí el repo en el editor y tené a mano: `plan/qa-plan.md`, la carpeta
-   `tests/`, `tests/Chime/DEVICE_MATRIX.md` y `.github/workflows/ci.yml`.
+2. Dejá **dos terminales** abiertas: una en `app-mock/` (para `php artisan test`)
+   y otra en la raíz (para el E2E).
+3. (Opcional, si vas a mostrar E2E) `cd qa-case/e2e && npm install && npx playwright install chromium`.
+4. Abrí el repo en el editor y tené a mano: `qa-case/plan/qa-plan.md`, la carpeta
+   `app-mock/tests/`, `app-mock/tests/Chime/DEVICE_MATRIX.md` y
+   `.github/workflows/ci.yml`.
 5. Cerrá notificaciones / silenciá el teléfono.
 
 ---
@@ -37,6 +40,7 @@ Mostrá la **pirámide de tests** y la tabla de herramientas del plan.
 
 ### 2. Que corre de verdad (3-4 min) — terminal
 ```bash
+cd app-mock          # la app + los tests viven acá
 php artisan test
 ```
 Mientras corre, contá qué cubre cada archivo. Cuando termine en verde, destacá
@@ -62,8 +66,8 @@ php artisan test --group=stripe
 ```
 
 ### 4. Chime — el flujo problemático (2-3 min)
-Este es el que más van a mirar. Abrí `tests/Chime/DEVICE_MATRIX.md` y
-`ChimeVideoTest.php`. Mensaje central:
+Este es el que más van a mirar. Abrí `app-mock/tests/Chime/DEVICE_MATRIX.md` y
+`app-mock/tests/Feature/ChimeVideoTest.php`. Mensaje central:
 > "No se puede testear medios reales en CI, así que separo dos cosas: la
 > **lógica de orquestación** (crear meeting + attendee, tokens, manejo de error)
 > la testeo con el **SDK de AWS mockeado** — eso va a CI en cada PR. Y la
@@ -80,7 +84,7 @@ a un mensaje limpio de "intentá de nuevo".
 ### 5. E2E + CI (2 min)
 - E2E (si el tiempo da, idealmente `--headed` para que se vea el navegador):
   ```bash
-  cd e2e && npx playwright test --headed
+  cd qa-case/e2e && npx playwright test --headed
   ```
 - Abrí `.github/workflows/ci.yml` y explicá: corre en cada PR, dos jobs, y con
   branch protection **bloquea el merge** si algo falla.

@@ -13,10 +13,14 @@ concurrency:
 jobs:
   # ---------------------------------------------------------------------
   # Core suite: Flows A, B, C + Chime (mocked). Must pass to merge.
+  # Runs inside the Laravel app mock (app-mock/).
   # ---------------------------------------------------------------------
   tests:
     name: Pest (API + Chime)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app-mock
     steps:
       - uses: actions/checkout@v4
 
@@ -30,8 +34,8 @@ jobs:
       - name: Cache Composer packages
         uses: actions/cache@v4
         with:
-          path: vendor
-          key: composer-${{ hashFiles('composer.lock', 'composer.json') }}
+          path: app-mock/vendor
+          key: composer-${{ hashFiles('app-mock/composer.lock', 'app-mock/composer.json') }}
           restore-keys: composer-
 
       - name: Install dependencies
@@ -46,7 +50,8 @@ jobs:
         run: php artisan test --exclude-group=integration
 
   # ---------------------------------------------------------------------
-  # E2E: Playwright drives the login flow against a real server.
+  # E2E: Playwright (qa-case/e2e/) drives the login flow against a real
+  # server booted from the app mock (app-mock/).
   # ---------------------------------------------------------------------
   e2e:
     name: Playwright (E2E login)
@@ -62,9 +67,11 @@ jobs:
           coverage: none
 
       - name: Install PHP dependencies
+        working-directory: app-mock
         run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Prepare environment + database
+        working-directory: app-mock
         run: |
           cp .env.example .env
           php artisan key:generate
@@ -77,13 +84,13 @@ jobs:
           node-version: '20'
 
       - name: Install Playwright
-        working-directory: e2e
+        working-directory: qa-case/e2e
         run: |
           npm install
           npx playwright install --with-deps chromium
 
       - name: Run E2E tests
-        working-directory: e2e
+        working-directory: qa-case/e2e
         env:
           CI: 'true'
         run: npx playwright test
@@ -93,5 +100,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: e2e/playwright-report
+          path: qa-case/e2e/playwright-report
           retention-days: 7

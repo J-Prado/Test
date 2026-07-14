@@ -3,11 +3,17 @@
 Asumí que ya seguiste **[INSTALL.md](INSTALL.md)** (tenés PHP + Composer, y Node
 si vas a correr el E2E).
 
-Todos los comandos se corren **desde la raíz** `qa-case-opcionyo/`.
+El repo tiene dos carpetas: **`app-mock/`** (la app Laravel + los tests de
+API/Feature) y **`qa-case/`** (plan, bugs, E2E y docs). Abajo indico desde dónde
+se corre cada comando: la mayoría de la suite es dentro de **`app-mock/`** y el
+E2E dentro de **`qa-case/e2e/`**. El setup de un comando se corre desde la
+**raíz del repo**.
 
 ---
 
 ## 0. Setup con un solo comando (recomendado la primera vez)
+
+Desde la **raíz del repo** (el script entra solo a `app-mock/`):
 
 **Windows (PowerShell):**
 ```powershell
@@ -25,7 +31,10 @@ migraciones + seed y ejecuta la suite completa. Si termina en verde, listo.
 
 ## 1. Setup manual (si preferís paso a paso)
 
+Todo esto corre dentro de `app-mock/`:
+
 ```bash
+cd app-mock                     # <- la app Laravel vive acá
 composer install                # instala Laravel y dependencias
 cp .env.example .env            # (Windows: copy .env.example .env)
 php artisan key:generate
@@ -42,6 +51,8 @@ php artisan migrate --seed
 ---
 
 ## 2. Correr la suite de tests (Flows A, B, C + Chime)
+
+Desde `app-mock/`:
 
 ```bash
 php artisan test                       # toda la suite
@@ -70,7 +81,7 @@ Necesita Node. El server lo arranca Playwright solo, pero la base tiene que esta
 migrada (el paso 0/1 ya lo hace).
 
 ```bash
-cd e2e
+cd qa-case/e2e                                 # desde la raíz del repo
 npm install
 npx playwright install --with-deps chromium   # sólo la primera vez
 npx playwright test                            # corre el E2E
@@ -78,16 +89,17 @@ npx playwright test --headed                   # con navegador visible (para dem
 npx playwright show-report                     # ver el reporte HTML
 ```
 
-> Playwright levanta `php artisan serve` en `http://127.0.0.1:8000`. Si ya tenés
-> un server corriendo, lo reutiliza.
+> Playwright levanta la app con `php ../../app-mock/artisan serve` en
+> `http://127.0.0.1:8000`. Si ya tenés un server corriendo, lo reutiliza.
 
 ---
 
 ## 4. Probar contra el sandbox REAL de Stripe (opcional)
 
-La suite corre con mocks por defecto. Para verificar la integración real:
+La suite corre con mocks por defecto. Para verificar la integración real
+(todo dentro de `app-mock/`):
 
-1. Poné tu clave de test en `.env`:
+1. Poné tu clave de test en `app-mock/.env`:
    ```
    STRIPE_SECRET=sk_test_tu_clave_real
    ```
@@ -111,6 +123,8 @@ stripe trigger customer.subscription.updated
 
 ## 5. Levantar la app para explorar a mano (opcional)
 
+Desde `app-mock/`:
+
 ```bash
 php artisan serve
 # abrí http://127.0.0.1:8000  -> /login , /register , /dashboard
@@ -125,8 +139,10 @@ Rutas de API disponibles: `POST /api/register`, `POST /api/login`,
 ## 6. Simular el pipeline de CI localmente
 
 ```bash
-php artisan test --exclude-group=integration     # lo que corre el job `tests`
-cd e2e && npx playwright test                     # lo que corre el job `e2e`
+# job `tests` (desde app-mock/):
+cd app-mock && php artisan test --exclude-group=integration
+# job `e2e` (desde la raíz del repo):
+cd qa-case/e2e && npx playwright test
 ```
 
 ---

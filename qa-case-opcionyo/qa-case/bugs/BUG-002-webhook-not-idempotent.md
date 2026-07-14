@@ -37,6 +37,6 @@ un evento: `INSERT` del `event.id`; si viola la PK, ya fue procesado → respond
 
 El handler (`StripeWebhookController`) **verifica firma** y actualiza estado, pero
 **todavía no deduplica por `event.id`** — documentado acá como deuda de test/fix.
-El test `tests/Feature/Flujo_B_PaymentTest.php` cubre firma válida/ inválida y la
+El test `app-mock/tests/Feature/Flujo_B_PaymentTest.php` cubre firma válida/ inválida y la
 actualización de estado; el test de idempotencia se agrega junto con la tabla de
 deduplicación.

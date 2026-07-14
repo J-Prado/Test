@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # One-shot setup for the Opcion Yo QA case (macOS / Linux).
+# Runs against the Laravel app mock in ../app-mock.
 # Usage: bash scripts/setup.sh
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../app-mock"
 
 echo "==> Installing PHP dependencies (composer)"
 composer install --no-interaction --prefer-dist
